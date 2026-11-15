@@ -26,12 +26,12 @@ foreach ($language in @('eng', 'rus')) {
 Invoke-WebRequest -Uri "$modelBase/LICENSE" -OutFile (Join-Path $runtime 'LICENSE-TESSDATA-FAST.txt')
 Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/tesseract-ocr/tesseract/main/LICENSE' -OutFile (Join-Path $runtime 'LICENSE-TESSERACT.txt')
 
-$env:TESSDATA_PREFIX = $runtime
+$env:TESSDATA_PREFIX = Join-Path $runtime 'tessdata'
 $exe = Join-Path $runtime 'tesseract.exe'
 $version = (& $exe --version 2>&1 | Select-Object -First 1)
 $languageOutput = & $exe --list-langs 2>&1
 if ($LASTEXITCODE -ne 0 -or ($languageOutput -notcontains 'eng') -or ($languageOutput -notcontains 'rus')) {
     throw "Tesseract language verification failed: $($languageOutput -join ', ')"
 }
-"TESSDATA_PREFIX=$runtime" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+"TESSDATA_PREFIX=$(Join-Path $runtime 'tessdata')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 Write-Host "$version; bundled languages: rus+eng"
