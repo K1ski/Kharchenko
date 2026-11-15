@@ -1,7 +1,9 @@
 $ErrorActionPreference = 'Stop'
 
 $installer = Join-Path $env:RUNNER_TEMP 'tesseract-ocr-w64-setup.exe'
-Invoke-WebRequest -Uri 'https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-5.5.3.20260724.exe' -OutFile $installer
+Invoke-WebRequest -Uri 'https://github.com/tesseract-ocr/tesseract/releases/download/5.5.3/tesseract-ocr-w64-setup-5.5.3.20260724.exe' -OutFile $installer
+$installerHash = (Get-FileHash -Path $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($installerHash -ne 'bee9e3434bd94fd65387d9be28cd467a41f61b1275383b55b0f59a1331270ae4') { throw "Unexpected Tesseract installer SHA256: $installerHash" }
 $process = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
 if ($process.ExitCode -ne 0) {
     throw "Tesseract installer failed with exit code $($process.ExitCode)"
