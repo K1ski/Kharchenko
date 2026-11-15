@@ -37,6 +37,14 @@ jobs:
           tar -xf source.tar.xz
           if (!(Test-Path 'HedgeHelper_v0.1.0/run.py')) { throw 'Cannot restore source project.' }
 
+      - name: Inspect OCR configuration
+        shell: pwsh
+        run: |
+          Write-Host '--- Python source files ---'
+          Get-ChildItem HedgeHelper_v0.1.0 -Recurse -Filter '*.py' | ForEach-Object { Write-Host $_.FullName }
+          Write-Host '--- Tesseract/OCR references with context ---'
+          Get-ChildItem HedgeHelper_v0.1.0 -Recurse -Include '*.py','*.spec','*.md','*.json' | Select-String -Pattern 'Tesseract|tesseract|pytesseract|OCR' -Context 5,8 | ForEach-Object { $_.ToString(); $_.Context.PreContext; $_.Context.PostContext }
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
