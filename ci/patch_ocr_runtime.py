@@ -22,7 +22,7 @@ replacement = (
     '            bundled_tesseract = bundle_root / "tesseract_runtime" / "tesseract.exe"\n'
     '            if bundled_tesseract.is_file():\n'
     '                cmd = str(bundled_tesseract)\n'
-    '                os.environ["TESSDATA_PREFIX"] = str(bundled_tesseract.parent)\n'
+    '                os.environ["TESSDATA_PREFIX"] = str(bundled_tesseract.parent / "tessdata")\n'
 )
 if "bundled_tesseract = bundle_root / \"tesseract_runtime\"" not in source:
     if needle not in source:
