@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - 'payload/**'
+      - 'ci/**'
+      - '.github/scripts/**'
       - '.github/workflows/windows-release.yml'
 
 permissions:
@@ -14,7 +16,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -57,29 +59,28 @@ jobs:
 
       - name: Prepare bundled Tesseract OCR
         shell: pwsh
+        run: pwsh -NoLogo -NoProfile -File .github/scripts/prepare_tesseract.ps1
+
+      - name: Patch app to use bundled Tesseract
+        run: python ci/patch_ocr_runtime.py
+
+      - name: Compile patched OCR module
+        run: python -m compileall -q HedgeHelper_v0.1.0/hedge_helper HedgeHelper_v0.1.0/run.py
+
+      - name: OCR smoke test (source)
+        shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $installer = Join-Path $env:RUNNER_TEMP 'tesseract-ocr-w64-setup.exe'
-          Invoke-WebRequest -Uri 'https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-5.5.3.20260724.exe' -OutFile $installer
-          $process = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
-          if ($process.ExitCode -ne 0) { throw "Tesseract installer failed with exit code $($process.ExitCode)" }
+          $env:PYTHONPATH = "$PWD/HedgeHelper_v0.1.0"
+          python -c "from hedge_helper.ocr_engine import OcrEngine; engine = OcrEngine(); print('Source OCR smoke test:', engine.version, engine.languages)"
 
-          $installed = Join-Path $env:ProgramFiles 'Tesseract-OCR'
-          if (!(Test-Path (Join-Path $installed 'tesseract.exe'))) { throw "Tesseract was not installed to $installed" }
-          $runtime = Join-Path $PWD 'HedgeHelper_v0.1.0\tesseract_runtime'
-          New-Item -ItemType Directory -Force $runtime | Out-Null
-          Copy-Item -Path (Join-Path $installed '*') -Destination $runtime -Recurse -Force
+      - name: Build and run frozen OCR smoke test
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --console --name OcrRuntimeSmoke --paths HedgeHelper_v0.1.0 --collect-all pytesseract --collect-all PIL --add-data "HedgeHelper_v0.1.0/tesseract_runtime;tesseract_runtime" .github/scripts/ocr_runtime_smoke.py
+          Remove-Item Env:TESSDATA_PREFIX -ErrorAction SilentlyContinue
+          & "$PWD/dist/OcrRuntimeSmoke.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Frozen OCR smoke test failed with exit code $LASTEXITCODE" }
 
-          $modelBase = 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/87416418657359cb625c412a48b6e1d6d41c29bd'
-          Invoke-WebRequest -Uri "$modelBase/eng.traineddata" -OutFile (Join-Path $runtime 'tessdata\eng.traineddata')
-          Invoke-WebRequest -Uri "$modelBase/rus.traineddata" -OutFile (Join-Path $runtime 'tessdata\rus.traineddata')
-          Invoke-WebRequest -Uri "$modelBase/LICENSE" -OutFile (Join-Path $runtime 'LICENSE-TESSDATA-FAST.txt')
-          Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/tesseract-ocr/tesseract/main/LICENSE' -OutFile (Join-Path $runtime 'LICENSE-TESSERACT.txt')
-
-          $env:TESSDATA_PREFIX = $runtime
-          $version = (& (Join-Path $runtime 'tesseract.exe') --version 2>&1 | Select-Object -First 1)
-          $languages = (& (Join-Path $runtime 'tesseract.exe') --list-langs 2>&1) -join "`n"
-          if ($LASTEXITCODE -ne 0 -or $languages -notmatch '(?m)^eng
       - name: Build Windows executable
         run: >
           python -m PyInstaller --noconfirm --clean --onefile --windowed
@@ -93,17 +94,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force release | Out-Null
           Copy-Item dist/HedgeHelper.exe release/HedgeHelper.exe
-          @'
-          # Hedge Helper v0.1.0 — Windows x64
-
-          ## Запуск
-          1. Распакуйте ZIP-архив в отдельную папку.
-          2. Запустите `HedgeHelper.exe`.
-
-          Tesseract OCR 5.5.3 уже включён в EXE вместе с языковыми моделями русского и английского языков (`rus` и `eng`). Устанавливать Tesseract отдельно и менять PATH не требуется.
-
-          Настройки и история приложения хранятся локально в профиле Windows.
-          '@ | Set-Content -Path release/README_RU.md -Encoding utf8
+          Copy-Item .github/scripts/README_RU.md release/README_RU.md
           Copy-Item HedgeHelper_v0.1.0/TEST_REPORT.md release/TEST_REPORT.md
           Add-Content release/TEST_REPORT.md "`n## Windows OCR bundle smoke test`n- Tesseract 5.5.3; bundled models rus+eng; source and frozen one-file OCR startup checks passed."
           Copy-Item HedgeHelper_v0.1.0/requirements.txt release/requirements.txt
@@ -118,93 +109,7 @@ jobs:
           name: Hedge Helper v0.1.0 — Windows x64
           draft: false
           prerelease: true
-          files: |
-            dist/HedgeHelper.exe
-            HedgeHelper_v0.1.0_Windows_x64.zip
- -or $languages -notmatch '(?m)^rus
-      - name: Build Windows executable
-        run: >
-          python -m PyInstaller --noconfirm --clean --onefile --windowed
-          --name HedgeHelper --paths HedgeHelper_v0.1.0
-          --collect-all pytesseract --collect-all PIL
-          HedgeHelper_v0.1.0/run.py
-
-      - name: Package
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force release | Out-Null
-          Copy-Item dist/HedgeHelper.exe release/HedgeHelper.exe
-          Copy-Item HedgeHelper_v0.1.0/README.md release/README_RU.md
-          Copy-Item HedgeHelper_v0.1.0/TEST_REPORT.md release/TEST_REPORT.md
-          Copy-Item HedgeHelper_v0.1.0/requirements.txt release/requirements.txt
-          Compress-Archive -Path release/* -DestinationPath HedgeHelper_v0.1.0_Windows_x64.zip -Force
-
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v0.1.0
-          name: Hedge Helper v0.1.0 — Windows x64
-          draft: false
-          prerelease: true
-          files: |
-            dist/HedgeHelper.exe
-            HedgeHelper_v0.1.0_Windows_x64.zip
-) {
-            throw "Bundled Tesseract language check failed. Output: $languages"
-          }
-          "TESSDATA_PREFIX=$runtime" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host "$version; bundled languages: rus+eng"
-
-      - name: Patch app to use bundled Tesseract
-        run: python ci/patch_ocr_runtime.py
-
-      - name: Compile patched OCR module
-        run: python -m compileall -q HedgeHelper_v0.1.0/hedge_helper HedgeHelper_v0.1.0/run.py
-
-      - name: OCR smoke test (source)
-        shell: pwsh
-        run: |
-          $env:PYTHONPATH = "$PWD\HedgeHelper_v0.1.0"
-          python -c "from hedge_helper.ocr_engine import OcrEngine; engine = OcrEngine(); print('Source OCR smoke test:', engine.version, engine.languages)"
-
-      - name: Build and run frozen OCR smoke test
-        shell: pwsh
-        run: |
-          @'
-          from hedge_helper.ocr_engine import OcrEngine
-          engine = OcrEngine()
-          print("Frozen OCR smoke test:", engine.version, engine.languages)
-          '@ | Set-Content -Path ocr_runtime_smoke.py -Encoding utf8
-
-          python -m PyInstaller --noconfirm --clean --onefile --console --name OcrRuntimeSmoke --paths HedgeHelper_v0.1.0 --collect-all pytesseract --collect-all PIL --add-data "HedgeHelper_v0.1.0/tesseract_runtime;tesseract_runtime" ocr_runtime_smoke.py
-          Remove-Item Env:TESSDATA_PREFIX -ErrorAction SilentlyContinue
-          & "$PWD\dist\OcrRuntimeSmoke.exe"
-          if ($LASTEXITCODE -ne 0) { throw "Frozen OCR smoke test failed with exit code $LASTEXITCODE" }
-
-      - name: Build Windows executable
-        run: >
-          python -m PyInstaller --noconfirm --clean --onefile --windowed
-          --name HedgeHelper --paths HedgeHelper_v0.1.0
-          --collect-all pytesseract --collect-all PIL
-          HedgeHelper_v0.1.0/run.py
-
-      - name: Package
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force release | Out-Null
-          Copy-Item dist/HedgeHelper.exe release/HedgeHelper.exe
-          Copy-Item HedgeHelper_v0.1.0/README.md release/README_RU.md
-          Copy-Item HedgeHelper_v0.1.0/TEST_REPORT.md release/TEST_REPORT.md
-          Copy-Item HedgeHelper_v0.1.0/requirements.txt release/requirements.txt
-          Compress-Archive -Path release/* -DestinationPath HedgeHelper_v0.1.0_Windows_x64.zip -Force
-
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v0.1.0
-          name: Hedge Helper v0.1.0 — Windows x64
-          draft: false
-          prerelease: true
+          overwrite_files: true
           files: |
             dist/HedgeHelper.exe
             HedgeHelper_v0.1.0_Windows_x64.zip
