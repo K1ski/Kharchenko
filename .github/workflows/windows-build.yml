@@ -72,14 +72,14 @@ jobs:
           Copy-Item HedgeHelper_v0.1.0/README.md release/README_RU.md
           Copy-Item HedgeHelper_v0.1.0/TEST_REPORT.md release/TEST_REPORT.md
           Copy-Item HedgeHelper_v0.1.0/requirements.txt release/requirements.txt
-          Compress-Archive -Path release/* -DestinationPath HedgeHelper_v0.1.1_Windows_x64.zip -Force
+          Compress-Archive -Path release/* -DestinationPath HedgeHelper_v0.1.2_Windows_x64.zip -Force
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: HedgeHelper_v0.1.1_Windows_x64
+          name: HedgeHelper_v0.1.2_Windows_x64
           path: |
             dist/HedgeHelper.exe
-            HedgeHelper_v0.1.1_Windows_x64.zip
+            HedgeHelper_v0.1.2_Windows_x64.zip
           if-no-files-found: error
           retention-days: 14
