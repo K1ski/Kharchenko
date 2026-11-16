@@ -255,6 +255,25 @@ def patch_ui() -> None:
 
     replace_once(
         path,
+        '        ttk.Label(frame, text="Захватывается только выбранный прямоугольник экрана. DOM, API и сетевые запросы сканера не используются.",\n'
+        '                  style="Muted.TLabel", wraplength=720).pack(anchor="w", pady=(3, 12))\n\n'
+        '        controls = ttk.Frame(frame, style="Panel.TFrame", padding=12)',
+        '        ttk.Label(frame, text="Захватывается только выбранный прямоугольник экрана. DOM, API и сетевые запросы сканера не используются.",\n'
+        '                  style="Muted.TLabel", wraplength=720).pack(anchor="w", pady=(3, 8))\n'
+        '        mode_row = ttk.Frame(frame)\n'
+        '        mode_row.pack(fill="x", pady=(0, 8))\n'
+        '        ttk.Label(mode_row, text="Распознавать:", style="Muted.TLabel").pack(side="left", padx=(0, 8))\n'
+        '        ttk.Radiobutton(mode_row, text="Карточки сканера", variable=self.capture_mode_var,\n'
+        '                        value="cards", command=self._save_capture_mode).pack(side="left", padx=(0, 10))\n'
+        '        ttk.Radiobutton(mode_row, text="Фактическую позицию PM", variable=self.capture_mode_var,\n'
+        '                        value="pm_position", command=self._save_capture_mode).pack(side="left")\n\n'
+        '        controls = ttk.Frame(frame, style="Panel.TFrame", padding=12)',
+        "Add capture-mode selector",
+    )
+
+
+    replace_once(
+        path,
         '            ("Акции Polymarket", self.shares_var, "N"),\n'
         '            ("Затраты, USDC", self.cost_var, "C"),',
         '            ("Shares / Potential payout Polymarket", self.shares_var, "N"),\n'
@@ -325,11 +344,21 @@ def patch_ui() -> None:
     replace_once(
         path,
         '    def _load_monitors(self):\n',
+        '    def _save_capture_mode(self) -> None:\n'
+        '        self.db.set_setting("capture_mode", self.capture_mode_var.get())\n'
+        '        self._log("Режим распознавания: " + ("фактическая позиция PM" if self.capture_mode_var.get() == "pm_position" else "карточки сканера"))\n\n'
         '    def _save_auto_transfer(self) -> None:\n'
         '        self.db.set_setting("auto_transfer_signal", "1" if self.auto_transfer_var.get() else "0")\n'
         '        self.last_auto_transfer_signature = None\n\n'
         '    def _load_monitors(self):\n',
         "Persist auto-transfer toggle",
+    )
+
+    replace_once(
+        path,
+        '        self.service = ScreenMonitor(self.region, ocr, callbacks, interval_seconds=1.0)',
+        '        self.service = ScreenMonitor(self.region, ocr, callbacks, interval_seconds=1.0, mode=self.capture_mode_var.get())',
+        "Pass selected capture mode to OCR service",
     )
 
     source = path.read_text(encoding="utf-8")
@@ -339,6 +368,22 @@ def patch_ui() -> None:
         raise SystemExit("Cannot find MonitorWindow._scan_received() boundaries")
     replacement = textwrap.indent(textwrap.dedent("""\
         def _scan_received(self, signals: list[ParsedSignal], full_scan: bool, error: str | None):
+            if self.capture_mode_var.get() == "pm_position":
+                if error:
+                    self._log(f"Ошибка OCR позиции PM: {error}")
+                elif len(signals) == 1 and signals[0].validation_status == ValidationStatus.READY:
+                    signal = signals[0]
+                    self.last_ready_signal = signal
+                    if self.auto_transfer_var.get():
+                        self.app.set_from_signal(signal, bring_to_front=False)
+                        self._log("Позиция Polymarket автоматически перенесена в калькулятор. Введите актуальный коэффициент БК.")
+                    else:
+                        self._log("Позиция PM распознана. Включите «Автоподстановка» или перенесите её вручную.")
+                elif signals:
+                    self._log("ПРОВЕРИТЬ: " + " ".join(signals[0].validation_notes))
+                self.count_var.set(f"Сигналов в базе: {len(self.db.list_signals())}")
+                self.review_var.set(f"На проверке: {len(self.db.list_reviews())}")
+                return
             successful = error is None
             try:
                 result = self.tracker.process(signals, full_scan=full_scan, successful=successful, error=error)
@@ -473,6 +518,8 @@ def main() -> None:
         raise SystemExit(f"Restored source directory not found: {PROJECT}")
     patch_capture()
     patch_parser()
+    patch_position_panel_parser()
+    patch_monitor_position_mode()
     patch_ui()
     add_tests()
     patch_existing_tests()
