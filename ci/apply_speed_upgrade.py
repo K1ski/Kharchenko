@@ -288,12 +288,12 @@ def add_tests() -> None:
 
         def test_potential_payout_and_average_price_fill_polymarket_position():
             signal = parse_card(_card(
-                "Event: Team A vs Team B\\\\n"
-                "Market: Moneyline\\\\n"
-                "Bookmaker outcome: Team A\\\\n"
-                "Polymarket outcome: Team B\\\\n"
-                "Odds: 1.90\\\\n"
-                "Avg. Price: 46¢\\\\n"
+                "Event: Team A vs Team B\\n"
+                "Market: Moneyline\\n"
+                "Bookmaker outcome: Team A\\n"
+                "Polymarket outcome: Team B\\n"
+                "Odds: 1.90\\n"
+                "Avg. Price: 46¢\\n"
                 "Potential payout: $125.00"
             ))
             assert signal.polymarket_shares == Decimal("125.00")
@@ -303,19 +303,34 @@ def add_tests() -> None:
 
         def test_explicit_invested_amount_takes_precedence_over_derived_cost():
             signal = parse_card(_card(
-                "Event: Team A vs Team B\\\\n"
-                "Market: Moneyline\\\\n"
-                "Bookmaker outcome: Team A\\\\n"
-                "Polymarket outcome: Team B\\\\n"
-                "Odds: 1.90\\\\n"
-                "Avg. Price: 46¢\\\\n"
-                "Potential payout: $125.00\\\\n"
+                "Event: Team A vs Team B\\n"
+                "Market: Moneyline\\n"
+                "Bookmaker outcome: Team A\\n"
+                "Polymarket outcome: Team B\\n"
+                "Odds: 1.90\\n"
+                "Avg. Price: 46¢\\n"
+                "Potential payout: $125.00\\n"
                 "Amount invested: $57.40"
             ))
             assert signal.polymarket_shares == Decimal("125.00")
             assert signal.polymarket_cost_usdc == Decimal("57.40")
     """), encoding="utf-8", newline="\n")
 
+
+
+def patch_existing_tests() -> None:
+    test_capture = PROJECT / "tests" / "test_capture.py"
+    replace_once(
+        test_capture,
+        'def test_monitor_enumeration_preserves_negative_coordinates(monkeypatch):\n'
+        '    monkeypatch.setitem(sys.modules, "mss", SimpleNamespace(mss=lambda: FakeMSS()))\n'
+        '    monitors = enumerate_monitors()\n',
+        'def test_monitor_enumeration_preserves_negative_coordinates(monkeypatch):\n'
+        '    monkeypatch.setitem(sys.modules, "mss", SimpleNamespace(mss=lambda: FakeMSS()))\n'
+        '    monkeypatch.setattr("hedge_helper.capture._windows_primary_monitor_rect", lambda: (-1920, 0, 1920, 1080))\n'
+        '    monitors = enumerate_monitors()\n',
+        "Mock actual Windows primary display in monitor enumeration test",
+    )
 
 def main() -> None:
     if not PROJECT.is_dir():
@@ -324,6 +339,7 @@ def main() -> None:
     patch_parser()
     patch_ui()
     add_tests()
+    patch_existing_tests()
     print("Applied Hedge Helper speed-flow upgrade: real primary-monitor detection, scanner position aliases, auto-fill and tests.")
 
 
