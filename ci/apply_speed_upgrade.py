@@ -532,7 +532,7 @@ def add_tests() -> None:
             ]
             signal = parse_pm_position_panel(words)
             assert signal.validation_status == ValidationStatus.REVIEW
-    """), encoding="utf-8", newline="\\n")
+    """), encoding="utf-8", newline="\n")
 
 
 
