@@ -129,6 +129,127 @@ def patch_parser() -> None:
     )
 
 
+
+def patch_position_panel_parser() -> None:
+    path = PROJECT / "hedge_helper" / "signal_parser.py"
+    source = path.read_text(encoding="utf-8")
+    if "def parse_pm_position_panel(" in source:
+        return
+    addition = textwrap.dedent("""\
+    
+    def parse_pm_position_panel(words) -> ParsedSignal:
+        """ + '"""Read actual spent amount and shares from the compact PM confirmation panel."""' + """
+        def norm(value: str) -> str:
+            return re.sub(r"[^a-zа-яё]", "", value.lower())
+
+        spent_anchor = [w for w in words if "потрачен" in norm(w.text)]
+        shares_anchor = [w for w in words if "куплено" in norm(w.text) or "дол" in norm(w.text)]
+        numeric = []
+        for word in words:
+            token = word.text.strip().replace(" ", "").replace("\\u00a0", "").lstrip("$€")
+            if re.fullmatch(r"[0-9]+(?:[.,][0-9]+)?", token):
+                value = _number(token)
+                if value is not None:
+                    numeric.append((word, value))
+
+        def value_below(anchor):
+            if not anchor:
+                return None
+            center_x = sum(w.left + w.width / 2 for w in anchor) / len(anchor)
+            label_bottom = max(w.top + w.height for w in anchor)
+            candidates = [(word, value) for word, value in numeric if word.top >= label_bottom - 2]
+            if not candidates:
+                return None
+            word, value = min(
+                candidates,
+                key=lambda item: abs((item[0].left + item[0].width / 2) - center_x)
+                + max(0, item[0].top - label_bottom) * 0.35,
+            )
+            return value, word
+
+        spent = value_below(spent_anchor)
+        shares = value_below(shares_anchor)
+        signal = ParsedSignal(
+            polymarket_cost_usdc=spent[0] if spent else None,
+            polymarket_shares=shares[0] if shares else None,
+            confidence=min([v[1].confidence for v in (spent, shares) if v], default=0.0),
+            raw_text=" ".join(w.text for w in sorted(words, key=lambda w: (w.top, w.left))),
+            extras={"capture_mode": "pm_position"},
+        )
+        if spent and shares and spent[0] > 0 and shares[0] > 0:
+            signal.validation_status = ValidationStatus.READY
+            signal.validation_notes = []
+        else:
+            signal.validation_status = ValidationStatus.REVIEW
+            signal.validation_notes = []
+            if not spent:
+                signal.validation_notes.append("Не распознано поле «Потрачено на PM, USDC».")
+            if not shares:
+                signal.validation_notes.append("Не распознано поле «Куплено долей PM».")
+            if not signal.validation_notes:
+                signal.validation_notes.append("Проверьте положительные значения позиции Polymarket.")
+        return signal
+    """)
+    path.write_text(source + addition, encoding="utf-8", newline="\\n")
+
+
+def patch_monitor_position_mode() -> None:
+    path = PROJECT / "hedge_helper" / "monitor.py"
+    replace_once(
+        path,
+        "from .signal_parser import parse_card",
+        "from .signal_parser import parse_card, parse_pm_position_panel",
+        "Import focused Polymarket panel parser",
+    )
+    replace_once(
+        path,
+        "    def __init__(self, region: dict[str, int], ocr: OcrEngine, callbacks: MonitorCallbacks | None = None,\\n"
+        "                 interval_seconds: float = 1.0, diff_threshold: float = 4.5):\\n"
+        "        self.region = dict(region)\\n"
+        "        self.ocr = ocr",
+        "    def __init__(self, region: dict[str, int], ocr: OcrEngine, callbacks: MonitorCallbacks | None = None,\\n"
+        "                 interval_seconds: float = 1.0, diff_threshold: float = 4.5, mode: str = \\"cards\\"):\\n"
+        "        self.region = dict(region)\\n"
+        "        self.ocr = ocr\\n"
+        "        self.mode = mode if mode in (\\"cards\\", \\"pm_position\\") else \\"cards\\"",
+        "Add monitor OCR mode",
+    )
+    replace_once(
+        path,
+        "                words = self.ocr.recognize(image)\\n"
+        "                cards = detect_cards(words)\\n"
+        "                signals = [parse_card(card) for card in cards]\\n"
+        "                # OCR covered the entire selected rectangle. Card parsing can be uncertain,\\n"
+        "                # but this is still a successful full-region pass for disappearance tracking.\\n"
+        "                self.callbacks.on_scan(signals, True, None)\\n"
+        "                self.callbacks.on_log(\\n"
+        "                    f\\"OCR завершён: слов {len(words)}, карточек-кандидатов {len(cards)}. \\"\\n"
+        "                    \\"Все неуверенные карточки направляются на проверку.\\"\\n"
+        "                )",
+        "                words = self.ocr.recognize(image)\\n"
+        "                if self.mode == \\"pm_position\\":\\n"
+        "                    signal = parse_pm_position_panel(words)\\n"
+        "                    signals = [signal]\\n"
+        "                    self.callbacks.on_scan(signals, True, None)\\n"
+        "                    if signal.validation_status.value == \\"ГОТОВ\\":\\n"
+        "                        self.callbacks.on_log(\\n"
+        "                            f\\"Фактическая позиция PM: вложено {signal.polymarket_cost_usdc} USDC; \\"\\n"
+        "                            f\\"куплено долей {signal.polymarket_shares}.\\"\\n"
+        "                        )\\n"
+        "                    else:\\n"
+        "                        self.callbacks.on_log(\\"ПРОВЕРИТЬ позицию PM: \\" + \\" \\".join(signal.validation_notes))\\n"
+        "                else:\\n"
+        "                    cards = detect_cards(words)\\n"
+        "                    signals = [parse_card(card) for card in cards]\\n"
+        "                    self.callbacks.on_scan(signals, True, None)\\n"
+        "                    self.callbacks.on_log(\\n"
+        "                        f\\"OCR завершён: слов {len(words)}, карточек-кандидатов {len(cards)}. \\"\\n"
+        "                        \\"Все неуверенные карточки направляются на проверку.\\"\\n"
+        "                    )",
+        "Switch OCR pipeline based on capture mode",
+    )
+
+
 def patch_ui() -> None:
     path = PROJECT / "hedge_helper" / "ui.py"
 
@@ -184,6 +305,7 @@ def patch_ui() -> None:
         '        self.tracker = SignalTracker(self.db)',
         '        self.last_ready_signal: ParsedSignal | None = None\n'
         '        self.last_auto_transfer_signature: tuple[str, ...] | None = None\n'
+        '        self.capture_mode_var = tk.StringVar(value=self.db.get_setting("capture_mode", "cards") or "cards")\n'
         '        self.auto_transfer_var = tk.BooleanVar(value=self.db.get_setting("auto_transfer_signal", "1") == "1")\n'
         '        self.tracker = SignalTracker(self.db)',
         "Initialize automatic transfer setting",
