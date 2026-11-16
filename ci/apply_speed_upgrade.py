@@ -329,7 +329,7 @@ def add_tests() -> None:
             )
             missing = [name for name in required if not callable(getattr(MonitorWindow, name, None))]
             assert not missing, f"MonitorWindow methods missing from class: {missing}"
-    """), encoding="utf-8", newline="\\n")
+    """), encoding="utf-8", newline="\n")
 
 
 def patch_existing_tests() -> None:
