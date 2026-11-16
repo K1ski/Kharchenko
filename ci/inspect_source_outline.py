@@ -28,6 +28,7 @@ if "--dump" in sys.argv:
         "hedge_helper/monitor.py": [(1, 1000)],
         "hedge_helper/signal_parser.py": [(1, 1000)],
         "hedge_helper/ui.py": [(1, 365), (415, 637)],
+        "tests/test_capture.py": [(1, 120)],
     }
     print("\n=== SELECTED SOURCE DUMP ===")
     for relative, spans in ranges.items():
