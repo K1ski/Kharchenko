@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'payload/**'
+      - 'ci/apply_speed_upgrade.py'
       - '.github/workflows/windows-build.yml'
 
 permissions:
@@ -29,6 +30,9 @@ jobs:
           [IO.File]::WriteAllBytes("$PWD\source.tar.xz", $bytes)
           tar -xf source.tar.xz
           if (!(Test-Path 'HedgeHelper_v0.1.0\run.py')) { throw 'Source archive extraction failed.' }
+
+      - name: Apply fast-flow and monitor fixes
+        run: python ci/apply_speed_upgrade.py
 
       - name: Inspect restored source outline
         run: python -X utf8 ci/inspect_source_outline.py --dump
@@ -67,14 +71,14 @@ jobs:
           Copy-Item HedgeHelper_v0.1.0/README.md release/README_RU.md
           Copy-Item HedgeHelper_v0.1.0/TEST_REPORT.md release/TEST_REPORT.md
           Copy-Item HedgeHelper_v0.1.0/requirements.txt release/requirements.txt
-          Compress-Archive -Path release/* -DestinationPath HedgeHelper_v0.1.0_Windows_x64.zip -Force
+          Compress-Archive -Path release/* -DestinationPath HedgeHelper_v0.1.1_Windows_x64.zip -Force
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: HedgeHelper_v0.1.0_Windows_x64
+          name: HedgeHelper_v0.1.1_Windows_x64
           path: |
             dist/HedgeHelper.exe
-            HedgeHelper_v0.1.0_Windows_x64.zip
+            HedgeHelper_v0.1.1_Windows_x64.zip
           if-no-files-found: error
           retention-days: 14
