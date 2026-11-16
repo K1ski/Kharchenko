@@ -208,10 +208,10 @@ def patch_monitor_position_mode() -> None:
         "        self.region = dict(region)\n"
         "        self.ocr = ocr",
         "    def __init__(self, region: dict[str, int], ocr: OcrEngine, callbacks: MonitorCallbacks | None = None,\n"
-        "                 interval_seconds: float = 1.0, diff_threshold: float = 4.5, mode: str = \\"cards\\"):\n"
+        "                 interval_seconds: float = 1.0, diff_threshold: float = 4.5, mode: str = \"cards\"):\n"
         "        self.region = dict(region)\n"
         "        self.ocr = ocr\n"
-        "        self.mode = mode if mode in (\\"cards\\", \\"pm_position\\") else \\"cards\\"",
+        "        self.mode = mode if mode in (\"cards\", \"pm_position\") else \"cards\"",
         "Add monitor OCR mode",
     )
     replace_once(
@@ -223,28 +223,28 @@ def patch_monitor_position_mode() -> None:
         "                # but this is still a successful full-region pass for disappearance tracking.\n"
         "                self.callbacks.on_scan(signals, True, None)\n"
         "                self.callbacks.on_log(\n"
-        "                    f\\"OCR завершён: слов {len(words)}, карточек-кандидатов {len(cards)}. \\"\n"
-        "                    \\"Все неуверенные карточки направляются на проверку.\\"\n"
+        "                    f\"OCR завершён: слов {len(words)}, карточек-кандидатов {len(cards)}. \"\n"
+        "                    \"Все неуверенные карточки направляются на проверку.\"\n"
         "                )",
         "                words = self.ocr.recognize(image)\n"
-        "                if self.mode == \\"pm_position\\":\n"
+        "                if self.mode == \"pm_position\":\n"
         "                    signal = parse_pm_position_panel(words)\n"
         "                    signals = [signal]\n"
         "                    self.callbacks.on_scan(signals, True, None)\n"
-        "                    if signal.validation_status.value == \\"ГОТОВ\\":\n"
+        "                    if signal.validation_status.value == \"ГОТОВ\":\n"
         "                        self.callbacks.on_log(\n"
-        "                            f\\"Фактическая позиция PM: вложено {signal.polymarket_cost_usdc} USDC; \\"\n"
-        "                            f\\"куплено долей {signal.polymarket_shares}.\\"\n"
+        "                            f\"Фактическая позиция PM: вложено {signal.polymarket_cost_usdc} USDC; \"\n"
+        "                            f\"куплено долей {signal.polymarket_shares}.\"\n"
         "                        )\n"
         "                    else:\n"
-        "                        self.callbacks.on_log(\\"ПРОВЕРИТЬ позицию PM: \\" + \\" \\".join(signal.validation_notes))\n"
+        "                        self.callbacks.on_log(\"ПРОВЕРИТЬ позицию PM: \" + \" \".join(signal.validation_notes))\n"
         "                else:\n"
         "                    cards = detect_cards(words)\n"
         "                    signals = [parse_card(card) for card in cards]\n"
         "                    self.callbacks.on_scan(signals, True, None)\n"
         "                    self.callbacks.on_log(\n"
-        "                        f\\"OCR завершён: слов {len(words)}, карточек-кандидатов {len(cards)}. \\"\n"
-        "                        \\"Все неуверенные карточки направляются на проверку.\\"\n"
+        "                        f\"OCR завершён: слов {len(words)}, карточек-кандидатов {len(cards)}. \"\n"
+        "                        \"Все неуверенные карточки направляются на проверку.\"\n"
         "                    )",
         "Switch OCR pipeline based on capture mode",
     )
