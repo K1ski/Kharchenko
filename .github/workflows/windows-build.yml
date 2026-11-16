@@ -31,7 +31,7 @@ jobs:
           if (!(Test-Path 'HedgeHelper_v0.1.0\run.py')) { throw 'Source archive extraction failed.' }
 
       - name: Inspect restored source outline
-        run: python ci/inspect_source_outline.py
+        run: python -X utf8 ci/inspect_source_outline.py
 
       - name: Set up Python 3.12 x64
         uses: actions/setup-python@v5
