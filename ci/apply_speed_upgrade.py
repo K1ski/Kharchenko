@@ -190,7 +190,7 @@ def patch_position_panel_parser() -> None:
                 signal.validation_notes.append("Проверьте положительные значения позиции Polymarket.")
         return signal
     """)
-    path.write_text(source + addition, encoding="utf-8", newline="\\n")
+    path.write_text(source + addition, encoding="utf-8", newline="\n")
 
 
 def patch_monitor_position_mode() -> None:
@@ -203,48 +203,48 @@ def patch_monitor_position_mode() -> None:
     )
     replace_once(
         path,
-        "    def __init__(self, region: dict[str, int], ocr: OcrEngine, callbacks: MonitorCallbacks | None = None,\\n"
-        "                 interval_seconds: float = 1.0, diff_threshold: float = 4.5):\\n"
-        "        self.region = dict(region)\\n"
+        "    def __init__(self, region: dict[str, int], ocr: OcrEngine, callbacks: MonitorCallbacks | None = None,\n"
+        "                 interval_seconds: float = 1.0, diff_threshold: float = 4.5):\n"
+        "        self.region = dict(region)\n"
         "        self.ocr = ocr",
-        "    def __init__(self, region: dict[str, int], ocr: OcrEngine, callbacks: MonitorCallbacks | None = None,\\n"
-        "                 interval_seconds: float = 1.0, diff_threshold: float = 4.5, mode: str = \\"cards\\"):\\n"
-        "        self.region = dict(region)\\n"
-        "        self.ocr = ocr\\n"
+        "    def __init__(self, region: dict[str, int], ocr: OcrEngine, callbacks: MonitorCallbacks | None = None,\n"
+        "                 interval_seconds: float = 1.0, diff_threshold: float = 4.5, mode: str = \\"cards\\"):\n"
+        "        self.region = dict(region)\n"
+        "        self.ocr = ocr\n"
         "        self.mode = mode if mode in (\\"cards\\", \\"pm_position\\") else \\"cards\\"",
         "Add monitor OCR mode",
     )
     replace_once(
         path,
-        "                words = self.ocr.recognize(image)\\n"
-        "                cards = detect_cards(words)\\n"
-        "                signals = [parse_card(card) for card in cards]\\n"
-        "                # OCR covered the entire selected rectangle. Card parsing can be uncertain,\\n"
-        "                # but this is still a successful full-region pass for disappearance tracking.\\n"
-        "                self.callbacks.on_scan(signals, True, None)\\n"
-        "                self.callbacks.on_log(\\n"
-        "                    f\\"OCR завершён: слов {len(words)}, карточек-кандидатов {len(cards)}. \\"\\n"
-        "                    \\"Все неуверенные карточки направляются на проверку.\\"\\n"
+        "                words = self.ocr.recognize(image)\n"
+        "                cards = detect_cards(words)\n"
+        "                signals = [parse_card(card) for card in cards]\n"
+        "                # OCR covered the entire selected rectangle. Card parsing can be uncertain,\n"
+        "                # but this is still a successful full-region pass for disappearance tracking.\n"
+        "                self.callbacks.on_scan(signals, True, None)\n"
+        "                self.callbacks.on_log(\n"
+        "                    f\\"OCR завершён: слов {len(words)}, карточек-кандидатов {len(cards)}. \\"\n"
+        "                    \\"Все неуверенные карточки направляются на проверку.\\"\n"
         "                )",
-        "                words = self.ocr.recognize(image)\\n"
-        "                if self.mode == \\"pm_position\\":\\n"
-        "                    signal = parse_pm_position_panel(words)\\n"
-        "                    signals = [signal]\\n"
-        "                    self.callbacks.on_scan(signals, True, None)\\n"
-        "                    if signal.validation_status.value == \\"ГОТОВ\\":\\n"
-        "                        self.callbacks.on_log(\\n"
-        "                            f\\"Фактическая позиция PM: вложено {signal.polymarket_cost_usdc} USDC; \\"\\n"
-        "                            f\\"куплено долей {signal.polymarket_shares}.\\"\\n"
-        "                        )\\n"
-        "                    else:\\n"
-        "                        self.callbacks.on_log(\\"ПРОВЕРИТЬ позицию PM: \\" + \\" \\".join(signal.validation_notes))\\n"
-        "                else:\\n"
-        "                    cards = detect_cards(words)\\n"
-        "                    signals = [parse_card(card) for card in cards]\\n"
-        "                    self.callbacks.on_scan(signals, True, None)\\n"
-        "                    self.callbacks.on_log(\\n"
-        "                        f\\"OCR завершён: слов {len(words)}, карточек-кандидатов {len(cards)}. \\"\\n"
-        "                        \\"Все неуверенные карточки направляются на проверку.\\"\\n"
+        "                words = self.ocr.recognize(image)\n"
+        "                if self.mode == \\"pm_position\\":\n"
+        "                    signal = parse_pm_position_panel(words)\n"
+        "                    signals = [signal]\n"
+        "                    self.callbacks.on_scan(signals, True, None)\n"
+        "                    if signal.validation_status.value == \\"ГОТОВ\\":\n"
+        "                        self.callbacks.on_log(\n"
+        "                            f\\"Фактическая позиция PM: вложено {signal.polymarket_cost_usdc} USDC; \\"\n"
+        "                            f\\"куплено долей {signal.polymarket_shares}.\\"\n"
+        "                        )\n"
+        "                    else:\n"
+        "                        self.callbacks.on_log(\\"ПРОВЕРИТЬ позицию PM: \\" + \\" \\".join(signal.validation_notes))\n"
+        "                else:\n"
+        "                    cards = detect_cards(words)\n"
+        "                    signals = [parse_card(card) for card in cards]\n"
+        "                    self.callbacks.on_scan(signals, True, None)\n"
+        "                    self.callbacks.on_log(\n"
+        "                        f\\"OCR завершён: слов {len(words)}, карточек-кандидатов {len(cards)}. \\"\n"
+        "                        \\"Все неуверенные карточки направляются на проверку.\\"\n"
         "                    )",
         "Switch OCR pipeline based on capture mode",
     )
