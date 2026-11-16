@@ -499,6 +499,43 @@ def add_tests() -> None:
     """), encoding="utf-8", newline="\n")
 
 
+    (PROJECT / "tests" / "test_pm_position_panel.py").write_text(textwrap.dedent("""
+        from decimal import Decimal
+
+        from hedge_helper.models import OcrWord, ValidationStatus
+        from hedge_helper.signal_parser import parse_pm_position_panel
+
+
+        def test_actual_pm_panel_reads_spent_and_shares_from_two_columns():
+            words = [
+                OcrWord("Потрачено", 96, 10, 8, 82, 18),
+                OcrWord("на", 96, 98, 8, 18, 18),
+                OcrWord("PM,", 96, 120, 8, 27, 18),
+                OcrWord("USDC", 96, 151, 8, 48, 18),
+                OcrWord("Куплено", 96, 370, 8, 72, 18),
+                OcrWord("долей", 96, 450, 8, 49, 18),
+                OcrWord("PM", 96, 505, 8, 25, 18),
+                OcrWord("9,24", 98, 20, 58, 45, 22),
+                OcrWord("36,960", 98, 380, 58, 65, 22),
+            ]
+            signal = parse_pm_position_panel(words)
+            assert signal.validation_status == ValidationStatus.READY
+            assert signal.polymarket_cost_usdc == Decimal("9.24")
+            assert signal.polymarket_shares == Decimal("36.960")
+
+
+        def test_panel_without_one_label_is_not_marked_ready():
+            words = [
+                OcrWord("Потрачено", 96, 10, 8, 82, 18),
+                OcrWord("9,24", 98, 20, 58, 45, 22),
+                OcrWord("36,960", 98, 380, 58, 65, 22),
+            ]
+            signal = parse_pm_position_panel(words)
+            assert signal.validation_status == ValidationStatus.REVIEW
+    """), encoding="utf-8", newline="\\n")
+
+
+
 def patch_existing_tests() -> None:
     test_capture = PROJECT / "tests" / "test_capture.py"
     replace_once(
