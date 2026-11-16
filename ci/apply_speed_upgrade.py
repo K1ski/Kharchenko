@@ -215,7 +215,7 @@ def patch_ui() -> None:
     end = source.find("    def transfer_ready(self):", start)
     if start < 0 or end < 0:
         raise SystemExit("Cannot find MonitorWindow._scan_received() boundaries")
-    replacement = textwrap.dedent("""\
+    replacement = textwrap.indent(textwrap.dedent("""\
         def _scan_received(self, signals: list[ParsedSignal], full_scan: bool, error: str | None):
             successful = error is None
             try:
@@ -263,7 +263,7 @@ def patch_ui() -> None:
             if error:
                 self._log(f"Полный scan не засчитан: {error}")
 
-    """)
+    """), "    ")
     path.write_text(source[:start] + replacement + source[end:], encoding="utf-8", newline="\n")
 
 
@@ -316,6 +316,20 @@ def add_tests() -> None:
             assert signal.polymarket_cost_usdc == Decimal("57.40")
     """), encoding="utf-8", newline="\n")
 
+
+    (PROJECT / "tests" / "test_monitor_window_structure.py").write_text(textwrap.dedent("""\
+        from hedge_helper.ui import MonitorWindow
+
+
+        def test_monitor_window_required_methods_are_class_members():
+            required = (
+                "_build", "_load_monitors", "_selected_monitor", "select_area",
+                "start", "pause", "stop", "_state_changed", "_scan_received",
+                "transfer_ready", "close", "_log", "_ui",
+            )
+            missing = [name for name in required if not callable(getattr(MonitorWindow, name, None))]
+            assert not missing, f"MonitorWindow methods missing from class: {missing}"
+    """), encoding="utf-8", newline="\\n")
 
 
 def patch_existing_tests() -> None:
