@@ -6,7 +6,7 @@ on:
     branches: [main]
     paths:
       - 'payload/**'
-      - 'ci/**'
+      - 'ci/patch_ocr_runtime.py'
       - '.github/scripts/**'
       - '.github/workflows/windows-release.yml'
 
