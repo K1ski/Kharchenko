@@ -7,6 +7,7 @@ on:
     paths:
       - 'payload/**'
       - 'ci/patch_ocr_runtime.py'
+      - 'ci/apply_speed_upgrade.py'
       - '.github/scripts/**'
       - '.github/workflows/windows-release.yml'
 
@@ -38,6 +39,9 @@ jobs:
           [IO.File]::WriteAllBytes("$PWD/source.tar.xz", $bytes)
           tar -xf source.tar.xz
           if (!(Test-Path 'HedgeHelper_v0.1.0/run.py')) { throw 'Cannot restore source project.' }
+
+      - name: Apply speed-focused app upgrade
+        run: python ci/apply_speed_upgrade.py
 
       - uses: actions/setup-python@v5
         with:
@@ -100,16 +104,16 @@ jobs:
           Copy-Item HedgeHelper_v0.1.0/requirements.txt release/requirements.txt
           Copy-Item HedgeHelper_v0.1.0/tesseract_runtime/LICENSE-TESSERACT.txt release/
           Copy-Item HedgeHelper_v0.1.0/tesseract_runtime/LICENSE-TESSDATA-FAST.txt release/
-          Compress-Archive -Path release/* -DestinationPath HedgeHelper_v0.1.0_Windows_x64.zip -Force
+          Compress-Archive -Path release/* -DestinationPath HedgeHelper_v0.1.1_Windows_x64.zip -Force
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.0
-          name: Hedge Helper v0.1.0 — Windows x64
+          tag_name: v0.1.1
+          name: Hedge Helper v0.1.1 — Windows x64
           draft: false
           prerelease: true
           overwrite_files: true
           files: |
             dist/HedgeHelper.exe
-            HedgeHelper_v0.1.0_Windows_x64.zip
+            HedgeHelper_v0.1.1_Windows_x64.zip
